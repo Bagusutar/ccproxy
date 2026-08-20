@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>ccproxy</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- 标题栏：品牌在左，窗口按钮沿用 Windows 的右上角布局 -->
+<div class="titlebar">
+  <span class="brand-glyph" aria-hidden="true">
+    <!-- 干线从左进入，分出三路——正是这个软件在做的事。
+         干线色走 --trunk，跟随明暗主题；三条支路是固定品牌色。 -->
+    <svg width="19" height="19" viewBox="0 0 64 64">
+      <g transform="translate(-1.25 0)" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="6.5">
+        <path d="M30 32 L46 16 H58" stroke="#0f97a8"/>
+        <path d="M30 32 L46 48 H54" stroke="#7b4ddc"/>
+        <path d="M30 32 H55" stroke="#0071e3"/>
+        <path d="M8 32 H30" stroke="var(--trunk)"/>
+      </g>
+      <g transform="translate(-1.25 0)">
+        <circle cx="58" cy="16" r="4" fill="#0f97a8"/>
+        <circle cx="54" cy="48" r="4" fill="#7b4ddc"/>
+        <circle cx="55" cy="32" r="6" fill="#0071e3"/>
+        <circle cx="30" cy="32" r="6.5" fill="var(--trunk)"/>
+      </g>
+    </svg>
+  </span>
+  <span class="title">ccproxy</span>
+  <span class="ver" id="brandVer"></span>
+
+  <div class="tb-spacer"></div>
+
+  <div class="winctl">
+    <button data-win="minimize" title="最小化" aria-label="最小化">
+      <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor" stroke-width="1"/></svg>
+    </button>
+    <button data-win="maximize" title="最大化" aria-label="最大化">
+      <svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+    </button>
+    <button class="wc-close" data-win="close" title="关闭" aria-label="关闭">
+      <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="rz t"  data-rz="t"></div>
+<div class="rz b"  data-rz="b"></div>
+<div class="rz l"  data-rz="l"></div>
+<div class="rz r"  data-rz="r"></div>
+<div class="rz tl" data-rz="tl"></div>
+<div class="rz tr" data-rz="tr"></div>
+<div class="rz bl" data-rz="bl"></div>
+<div class="rz br" data-rz="br"></div>
+
+<div class="shell">
+
+  <aside class="sidebar">
+    <div class="side-scroll">
+      <div class="side-group">
+        <div class="side-title">上游</div>
+        <div id="providerNav"></div>
+        <button class="side-add" id="addProvider">＋ 添加上游</button>
+      </div>
+
+      <div class="side-group">
+        <div class="side-title">设置</div>
+        <div class="side-item" data-pane="alloc"><span class="name">模型分配</span></div>
+        <div class="side-item" data-pane="usage"><span class="name">用量与花费</span></div>
+        <div class="side-item" data-pane="adv"><span class="name">代理设置</span></div>
+        <div class="side-item" data-pane="connect"><span class="name">接入其他工具</span></div>
+        <div class="side-item" data-pane="restore"><span class="name">配置与还原</span></div>
+      </div>
+    </div>
+
+    <div class="side-foot">
+      <div class="pop" id="statusPop">
+        <button data-act="restart">重启代理</button>
+        <button data-act="stop">停止代理</button>
+        <hr>
+        <button data-act="copyaddr">复制本地地址</button>
+        <button data-act="openlog">打开日志目录</button>
+        <button data-act="copydiag">复制诊断信息</button>
+      </div>
+      <button class="status-pill" id="statusBtn">
+        <i class="dot" id="statusDot"></i>
+        <span class="txt" id="statusText">检查中</span>
+        <svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none"
+             stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true"><path d="M2.5 6.5L5 4l2.5 2.5"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <div class="content">
+    <div class="fade top"></div>
+    <div class="fade bot"></div>
+
+    <div class="scroll">
+      <div id="providerPanes"></div>
+
+      <!-- ---------- 模型分配 ---------- -->
+      <section class="page" data-pane="alloc">
+        <div class="page-head">
+          <h1>模型分配</h1>
+          <div class="sub">把 Claude Code 的每个模型位指向任意上游的任意模型。下拉列表按上游分组，需先在对应上游获取模型列表才有可选项。</div>
+        </div>
+        <div id="slotList"></div>
+
+        <details class="note" style="margin-top:2px">
+          <summary>路由预览</summary>
+          <div class="inner" style="padding:0 0 10px">
+            <table class="prev">
+              <thead><tr><th style="width:34%">客户端请求</th><th style="width:4%"></th><th>实际转发到</th></tr></thead>
+              <tbody id="prevBody"></tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+
+      <!-- ---------- 用量与花费 ---------- -->
+      <section class="page" data-pane="usage">
+        <div class="page-head">
+          <h1>用量与花费</h1>
+          <div class="sub">两个口径分开呈现：代理计量的是实际经过 ccproxy 的流量；
+          会话记录统计的是 Claude Code 的全部用量，含未经本代理的部分。单价可手动填写，留空则采用内置预设。</div>
+        </div>
+
+        <section class="usage-card" data-range-card="meter" aria-labelledby="meterTitle">
+          <div class="usage-card-head">
+            <div class="card-title" id="meterTitle">经过 ccproxy 的流量<span class="cap" id="meterSince"></span></div>
+            <div class="range-bar" data-range="meter">
+              <div class="range-presets" role="group" aria-label="代理流量日期范围">
+                <button type="button" data-preset="all" aria-pressed="false">全部</button><button type="button" data-preset="today" aria-pressed="false">今天</button><button type="button" data-preset="yesterday" aria-pressed="false">昨天</button><button type="button" data-preset="7" aria-pressed="false">7天</button><button type="button" data-preset="30" aria-pressed="false">30天</button><button type="button" data-preset="custom" aria-pressed="false">自定义</button>
+              </div>
+              <div class="range-custom" data-custom hidden>
+                <label for="meterFrom">开始</label><input id="meterFrom" type="date" data-from aria-describedby="meterRangeStatus">
+                <span aria-hidden="true">至</span><label for="meterTo">结束</label><input id="meterTo" type="date" data-to aria-describedby="meterRangeStatus">
+                <button type="button" class="btn primary range-apply" data-apply>应用</button>
+              </div>
+              <div class="range-meta">
+                <div class="range-summary" data-summary aria-live="polite"></div>
+                <div class="range-status" id="meterRangeStatus" data-status role="alert" aria-live="assertive"></div>
+              </div>
+            </div>
+          </div>
+          <div class="usage-card-body">
+            <div id="meterTotal" class="usage-total"><div class="usage-empty">读取中…</div></div>
+            <div class="scrollx"><table class="usage" id="meterTable"><tbody></tbody></table></div>
+          </div>
+          <div class="card-foot usage-actions"><span id="meterFoot">后台代理按本地日期累计，停止代理不影响历史记录；不限客户端，任何指向本地地址的程序均计入。</span><button class="btn" id="resetUsage">重置计数…</button></div>
+        </section>
+
+        <section class="usage-card" data-range-card="usage" aria-labelledby="usageTitle">
+          <div class="usage-card-head">
+            <div class="card-title" id="usageTitle">Claude Code 总用量<span class="cap">· 含未经本代理的部分</span></div>
+            <div class="range-bar" data-range="usage">
+              <div class="range-presets" role="group" aria-label="Claude Code 日期范围">
+                <button type="button" data-preset="all" aria-pressed="false">全部</button><button type="button" data-preset="today" aria-pressed="false">今天</button><button type="button" data-preset="yesterday" aria-pressed="false">昨天</button><button type="button" data-preset="7" aria-pressed="false">7天</button><button type="button" data-preset="30" aria-pressed="false">30天</button><button type="button" data-preset="custom" aria-pressed="false">自定义</button>
+              </div>
+              <div class="range-custom" data-custom hidden>
+                <label for="usageFrom">开始</label><input id="usageFrom" type="date" data-from aria-describedby="usageRangeStatus">
+                <span aria-hidden="true">至</span><label for="usageTo">结束</label><input id="usageTo" type="date" data-to aria-describedby="usageRangeStatus">
+                <button type="button" class="btn primary range-apply" data-apply>应用</button>
+              </div>
+              <div class="range-meta">
+                <div class="range-summary" data-summary aria-live="polite"></div>
+                <div class="range-status" id="usageRangeStatus" data-status role="alert" aria-live="assertive"></div>
+              </div>
+            </div>
+          </div>
+          <div class="usage-card-body">
+            <div id="usageTotal" class="usage-total"><div class="usage-empty">读取中…</div></div>
+            <div class="scrollx"><table class="usage" id="usageTable"><tbody></tbody></table></div>
+          </div>
+          <div class="card-foot usage-actions"><span id="usageFoot"></span><button class="btn" id="refreshUsage">刷新用量</button></div>
+        </section>
+
+        <div class="card-title">单价<span class="cap">· 决定上面两张表如何折算为成本</span></div>
+        <div class="card">
+          <details class="note" style="border:0;margin:0;border-radius:0">
+            <summary style="padding:11px 14px">查看与修改<span class="cap">· 留空采用内置预设，填写后以填写值为准</span></summary>
+            <div class="inner" style="padding:0 0 6px">
+              <div class="usage-empty" id="priceEmpty" style="padding:2px 14px 10px">读取中…</div>
+              <div class="scrollx"><table class="usage price" id="priceTable"><tbody></tbody></table></div>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <!-- ---------- 代理设置 ---------- -->
+      <section class="page" data-pane="adv">
+        <div class="page-head">
+          <h1>代理设置</h1>
+          <div class="sub">本地代理自身的监听、启动方式，以及面向不稳定上游的容错阈值。</div>
+        </div>
+
+        <div class="inline-warn" id="elevWarn" hidden style="margin:0 0 16px">
+          <div><b>当前以管理员权限运行。</b>Windows 的 UIPI 特权隔离规定：非提权程序的全局键盘钩子，
+          在提权窗口获得焦点时收不到按键，因此本窗口位于前台时全局热键会失效。
+          本程序不需要管理员权限，该状态通常由管理员终端启动时的权限继承造成，关闭后双击重新运行即可。</div>
+        </div>
+
+        <div class="card-title">监听与启动</div>
+        <div class="card">
+          <div class="row">
+            <div class="row-label">监听端口</div>
+            <div class="row-main"><input type="text" class="mono" id="port" style="width:96px;flex:none"></div>
+          </div>
+          <div class="row-foot">端口被占用时自动顺延</div>
+          <div class="row">
+            <div class="row-label">开机自启</div>
+            <div class="row-main"><button class="switch" id="autostart"></button></div>
+          </div>
+          <div class="row-foot">在当前用户的注册表 <code>Run</code> 键写入一项，登录 Windows 后自动启动后台代理。不需要管理员权限</div>
+        </div>
+
+        <div class="card-title">容错阈值</div>
+        <div class="card">
+          <div class="row">
+            <div class="row-label">重试守护</div>
+            <div class="row-main"><button class="switch" id="watchdog"></button></div>
+          </div>
+          <div class="row-foot">写入 <code>CLAUDE_CODE_RETRY_WATCHDOG=1</code>，使 Claude Code 对瞬时错误采用更长的重试退避</div>
+          <div class="row">
+            <div class="row-label">超时重发</div>
+            <div class="row-main">
+              <span class="stepper"><input type="text" id="firstByte"><span class="unit">秒</span>
+                <span class="arrows"><button data-step="firstByte:5">▲</button><button data-step="firstByte:-5">▼</button></span></span>
+            </div>
+          </div>
+          <div class="row-foot">上游超过该时长未返回响应头即自动重发。此时客户端尚未收到任何数据，重发不会产生重复内容</div>
+          <div class="row">
+            <div class="row-label">静默上限</div>
+            <div class="row-main">
+              <span class="stepper"><input type="text" id="stall"><span class="unit">秒</span>
+                <span class="arrows"><button data-step="stall:5">▲</button><button data-step="stall:-5">▼</button></span></span>
+            </div>
+          </div>
+          <div class="row-foot">上游已开始返回、随后超过该时长没有任何数据（含 SSE 心跳）时，提前结束本次响应并交还控制权</div>
+          <div class="card-foot">
+            Claude Code 自身需等待 300 秒才放弃，上述两项应明显小于该值才有意义。
+            <button class="btn link" id="resetTimings" style="margin-left:6px">恢复默认值</button>
+          </div>
+        </div>
+
+        <div class="card-title">诊断</div>
+        <div class="card">
+          <div class="row">
+            <div class="row-label">日志</div>
+            <div class="row-main">
+              <button class="btn" data-act="openlog">打开日志目录</button>
+              <button class="btn" data-act="copydiag">复制诊断信息</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- 接入其他工具 ---------- -->
+      <section class="page" data-pane="connect">
+        <div class="page-head">
+          <h1>接入其他工具</h1>
+          <div class="sub">将下方地址与凭证填入任何支持自定义 API 端点的工具。
+          代理依据请求体中的 <code>model</code> 选择上游，替换凭证后转发。</div>
+        </div>
+
+        <div class="card-title">本地地址</div>
+        <div class="card">
+          <div class="row">
+            <div class="row-label">地址</div>
+            <div class="row-main">
+              <input type="text" class="mono" id="hookUrl" readonly>
+              <button class="btn" data-copy="hookUrl">复制</button>
+            </div>
+          </div>
+          <div class="row">
+            <div class="row-label">凭证</div>
+            <div class="row-main">
+              <input type="text" class="mono" id="hookToken" value="ccproxy-managed" readonly>
+              <button class="btn" data-copy="hookToken">复制</button>
+            </div>
+          </div>
+          <div class="card-foot">
+            凭证可填任意值，代理会替换为对应上游的真实凭证；真实密钥不会离开本机。<br>
+            代理仅监听 <code>127.0.0.1</code>，本机以外无法访问，本机上的任何程序均可使用。
+          </div>
+        </div>
+
+        <div class="card-title">配置片段</div>
+        <div class="card">
+          <div class="chip-bar">
+            <span class="seg" id="segCode">
+              <button class="on" data-k="sh">Bash / Zsh</button>
+              <button data-k="ps">PowerShell</button>
+              <button data-k="json">Claude</button>
+              <button data-k="codex">Codex</button>
+            </span>
+            <div class="spacer"></div>
+            <button class="btn" data-copy="codeBox">复制</button>
+          </div>
+          <pre class="code" id="codeBox"></pre>
+          <div class="card-foot">
+            前两项按 shell 选择：<code>export</code> 适用于 Linux、macOS、WSL、Git Bash，
+            <code>$env:</code> 适用于 PowerShell。<br>
+            「Claude」是 Claude Code 的 <code>settings.json</code> 片段，本机已自动写入，此处供其他机器复制使用。
+          </div>
+        </div>
+
+        <div class="card-title">已验证的工具</div>
+        <div class="card">
+          <div class="row">
+            <div class="row-label">Codex</div>
+            <div class="row-main"><span class="pill b-ok">可用</span></div>
+          </div>
+          <div class="row-foot">
+            按上方「Codex」标签页的内容写入 <code>~/.codex/config.toml</code>。
+            Codex 只使用 <code>/v1/responses</code>，模型需选择上游在该接口上提供的那些；
+            Claude 系模型走该接口通常返回 <code>convert_request_failed</code>。
+          </div>
+
+          <div class="row">
+            <div class="row-label">Cursor</div>
+            <div class="row-main"><span class="pill b-err">不可用</span></div>
+          </div>
+          <div class="row-foot">
+            Cursor 的对话请求由 Cursor 的服务器发出，而非本机，因此无法访问
+            <code>127.0.0.1</code>，返回 <code>Access to private networks is forbidden</code>。
+            设置页的验证按钮由客户端直接发起，能够连通本代理，所以会出现「验证通过、对话失败」。
+            接入需要把本代理暴露到公网，本程序不提供该能力。
+          </div>
+
+          <div class="card-foot">
+            可接入的条件有两条：工具支持自定义 API 端点，且请求由本机发出。
+            把请求交给自家服务器再转发的工具无法接入，本代理只监听 <code>127.0.0.1</code>。
+            在本机发起请求的 Anthropic 或 OpenAI 兼容客户端均可直接使用。
+          </div>
+        </div>
+
+        <details class="note" style="margin-top:2px">
+          <summary>支持的接口</summary>
+          <div class="inner" style="padding:0 0 10px">
+            <table class="prev">
+              <thead><tr><th style="width:46%">路径</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">POST /v1/messages</td><td>Anthropic Messages，转发到上游的<b>地址</b></td></tr>
+                <tr><td class="mono">POST /v1/messages/count_tokens</td><td>上游不支持该端点时由本地估算</td></tr>
+                <tr><td class="mono">POST /v1/chat/completions</td><td>OpenAI Chat Completions，转发到<b>OpenAI 地址</b></td></tr>
+                <tr><td class="mono">POST /v1/responses</td><td>OpenAI Responses，同上</td></tr>
+                <tr><td class="mono">GET&nbsp; /v1/models</td><td>本地合成，返回所有上游模型的并集</td></tr>
+              </tbody>
+            </table>
+            <div style="padding:10px 14px 0">
+              填写地址时带不带 <code>/v1</code> 均可，两种写法都会正确落到上述路径。
+              其余路径原样转发，不做改写。上游未实现某条路径时，返回其自身的 404。
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- ---------- 配置与还原 ---------- -->
+      <section class="page" data-pane="restore">
+        <div class="page-head">
+          <h1>配置与还原</h1>
+          <div class="sub">ccproxy 仅改写下列字段。其余键的内容与顺序原样保留，缩进沿用文件原有宽度。首次接管前备份一次原文件。</div>
+        </div>
+
+        <div class="card-title">配置文件</div>
+        <div class="card">
+          <div class="row">
+            <div class="row-label">路径</div>
+            <div class="row-main">
+              <input type="text" id="settingsPathInput" placeholder="留空则使用系统默认路径">
+              <button class="btn" id="pickSettings">选择…</button>
+            </div>
+          </div>
+          <div class="row-foot">
+            当前生效：<code id="settingsPath">—</code><br>
+            留空即使用 Windows 默认路径。如需修改 WSL 中的配置，可选择
+            <code>\\wsl.localhost\&lt;发行版&gt;\home\&lt;用户&gt;\.claude\settings.json</code>。
+            设置过 <code>CLAUDE_CONFIG_DIR</code> 时同理。
+          </div>
+        </div>
+
+        <div class="card-title">会被修改的字段</div>
+        <div class="card">
+          <details class="note" style="border:0;margin:0;border-radius:0">
+            <summary style="padding:11px 14px">查看写入内容</summary>
+            <div class="inner" style="padding:0 0 8px">
+              <div class="diff" id="diffBox"></div>
+            </div>
+          </details>
+        </div>
+
+        <div class="card-title">还原</div>
+        <div class="card danger">
+          <div class="danger-body">
+            <div style="font-weight:600;margin-bottom:4px">卸载并还原</div>
+            <ul>
+              <li>从 <code>settings.json</code> 移除上述字段，其余内容不变</li>
+              <li>停止代理，取消开机自启</li>
+              <li>删除 ccproxy 创建的全部文件：配置（含凭证）、日志、用量记录、
+                备份、后台服务映像，连同数据目录本身</li>
+            </ul>
+            <div class="danger-note">
+              启动器 ccproxy.exe 不在清理范围内：其位置由用户决定，
+              本程序不记录该路径，不再需要时自行删除。
+              配置不保留，重新启用需重新填写。
+            </div>
+            <button class="btn danger" id="uninstall">卸载并还原…</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="footbar">
+      <button class="btn danger" id="delProvider" hidden>删除此上游…</button>
+      <div class="spacer"></div>
+      <span class="dirty" id="dirty"><i class="d"></i>有未保存的更改</span>
+      <button class="btn primary" id="save">保存并应用</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-backdrop" id="modalBackdrop" hidden>
+  <div class="modal" role="alertdialog" aria-modal="true">
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-msg" id="modalMsg"></div>
+    <input type="text" class="modal-input" id="modalInput" hidden>
+    <div class="modal-actions">
+      <button class="btn" id="modalCancel">取消</button>
+      <button class="btn primary" id="modalOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

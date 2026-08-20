@@ -1,0 +1,14 @@
+# 构建产物
+/ccproxy
+/ccproxy-linux-amd64
+*.exe
+
+# 图标生成物。
+# 提交的是 icon.ico（打包好的多尺寸图标）与 rsrc_windows_amd64.syso
+# （Windows 资源，go build 需要它在源码树里）；
+# tools/mkicon 目录下那两个是每次 go run 重新产出的中间物。
+tools/mkicon/icon.ico
+tools/mkicon/preview.png
+
+# Python 缓存
+__pycache__/
